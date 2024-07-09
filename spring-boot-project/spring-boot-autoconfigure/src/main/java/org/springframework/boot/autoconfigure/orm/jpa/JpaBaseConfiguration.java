@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.JpaVendorAdapter;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.persistenceunit.ManagedClassNameFilter;
 import org.springframework.orm.jpa.persistenceunit.PersistenceManagedTypes;
 import org.springframework.orm.jpa.persistenceunit.PersistenceManagedTypesScanner;
 import org.springframework.orm.jpa.persistenceunit.PersistenceUnitManager;
@@ -69,6 +70,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * @author Andy Wilkinson
  * @author Kazuki Shimizu
  * @author Eddú Meléndez
+ * @author Yanming Zhou
  * @since 1.0.0
  */
 @Configuration(proxyBeanMethods = false)
@@ -93,7 +95,8 @@ public abstract class JpaBaseConfiguration {
 	public PlatformTransactionManager transactionManager(
 			ObjectProvider<TransactionManagerCustomizers> transactionManagerCustomizers) {
 		JpaTransactionManager transactionManager = new JpaTransactionManager();
-		transactionManagerCustomizers.ifAvailable((customizers) -> customizers.customize(transactionManager));
+		transactionManagerCustomizers
+			.ifAvailable((customizers) -> customizers.customize((TransactionManager) transactionManager));
 		return transactionManager;
 	}
 
@@ -130,8 +133,12 @@ public abstract class JpaBaseConfiguration {
 			PersistenceManagedTypes persistenceManagedTypes) {
 		Map<String, Object> vendorProperties = getVendorProperties();
 		customizeVendorProperties(vendorProperties);
-		return factoryBuilder.dataSource(this.dataSource).managedTypes(persistenceManagedTypes)
-				.properties(vendorProperties).mappingResources(getMappingResources()).jta(isJta()).build();
+		return factoryBuilder.dataSource(this.dataSource)
+			.managedTypes(persistenceManagedTypes)
+			.properties(vendorProperties)
+			.mappingResources(getMappingResources())
+			.jta(isJta())
+			.build();
 	}
 
 	protected abstract AbstractJpaVendorAdapter createJpaVendorAdapter();
@@ -190,9 +197,11 @@ public abstract class JpaBaseConfiguration {
 		@Bean
 		@Primary
 		@ConditionalOnMissingBean
-		static PersistenceManagedTypes persistenceManagedTypes(BeanFactory beanFactory, ResourceLoader resourceLoader) {
+		static PersistenceManagedTypes persistenceManagedTypes(BeanFactory beanFactory, ResourceLoader resourceLoader,
+				ObjectProvider<ManagedClassNameFilter> managedClassNameFilter) {
 			String[] packagesToScan = getPackagesToScan(beanFactory);
-			return new PersistenceManagedTypesScanner(resourceLoader).scan(packagesToScan);
+			return new PersistenceManagedTypesScanner(resourceLoader, managedClassNameFilter.getIfAvailable())
+				.scan(packagesToScan);
 		}
 
 		private static String[] getPackagesToScan(BeanFactory beanFactory) {

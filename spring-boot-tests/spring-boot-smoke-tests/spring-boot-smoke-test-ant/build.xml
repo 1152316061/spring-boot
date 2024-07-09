@@ -38,6 +38,7 @@
 
 	<target name="clean" description="cleans all created files/dirs">
 		<delete dir="target" />
+		<delete dir="${lib.dir}" />
 	</target>
 
 	<target name="build" depends="compile">
@@ -48,6 +49,7 @@
 			</spring-boot:lib>
 		</spring-boot:exejar>
 	</target>
+
 	<!-- Manual equivalent of the build target -->
 	<target name="manual" depends="compile">
 		<jar destfile="target/${ant.project.name}-${ant-spring-boot.version}.jar" compress="false">
@@ -63,9 +65,9 @@
 				<fileset dir="${lib.dir}/runtime" />
 				<globmapper from="*" to="BOOT-INF/lib/*"/>
 			</mappedresources>
-			<zipfileset src="${lib.dir}/loader/spring-boot-loader-jar-${ant-spring-boot.version}.jar" />
+			<zipfileset src="${lib.dir}/loader/spring-boot-loader-classic-jar-${ant-spring-boot.version}.jar" />
 			<manifest>
-				<attribute name="Main-Class" value="org.springframework.boot.loader.JarLauncher" />
+				<attribute name="Main-Class" value="org.springframework.boot.loader.launch.JarLauncher" />
 				<attribute name="Start-Class" value="${start-class}" />
 			</manifest>
 		</jar>

@@ -34,10 +34,7 @@ bootJar {
 }
 
 bootBuildImage {
-	builder = 'paketobuildpacks/builder:tiny'
-	environment = ['BP_NATIVE_IMAGE': 'true']
-	buildpacks = [
-			"gcr.io/paketo-buildpacks/bellsoft-liberica:9.9.0-ea",
-			"urn:cnb:builder:paketo-buildpacks/java-native-image"
-	]
+	environment = ['BP_NATIVE_IMAGE': 'true',
+					//see https://github.com/paketo-buildpacks/native-image/issues/321
+				   'BP_NATIVE_IMAGE_BUILD_ARGUMENTS': '-H:-AddAllFileSystemProviders']
 }

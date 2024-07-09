@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 package org.springframework.boot.actuate.scheduling;
 
-import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -45,7 +45,6 @@ import org.springframework.scheduling.config.Task;
 import org.springframework.scheduling.config.TriggerTask;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.scheduling.support.PeriodicTrigger;
-import org.springframework.scheduling.support.ScheduledMethodRunnable;
 
 /**
  * {@link Endpoint @Endpoint} to expose information about an application's scheduled
@@ -67,9 +66,11 @@ public class ScheduledTasksEndpoint {
 	@ReadOperation
 	public ScheduledTasksDescriptor scheduledTasks() {
 		Map<TaskType, List<TaskDescriptor>> descriptionsByType = this.scheduledTaskHolders.stream()
-				.flatMap((holder) -> holder.getScheduledTasks().stream()).map(ScheduledTask::getTask)
-				.map(TaskDescriptor::of).filter(Objects::nonNull)
-				.collect(Collectors.groupingBy(TaskDescriptor::getType));
+			.flatMap((holder) -> holder.getScheduledTasks().stream())
+			.map(ScheduledTask::getTask)
+			.map(TaskDescriptor::of)
+			.filter(Objects::nonNull)
+			.collect(Collectors.groupingBy(TaskDescriptor::getType));
 		return new ScheduledTasksDescriptor(descriptionsByType);
 	}
 
@@ -130,8 +131,12 @@ public class ScheduledTasksEndpoint {
 		private final RunnableDescriptor runnable;
 
 		private static TaskDescriptor of(Task task) {
-			return DESCRIBERS.entrySet().stream().filter((entry) -> entry.getKey().isInstance(task))
-					.map((entry) -> entry.getValue().apply(task)).findFirst().orElse(null);
+			return DESCRIBERS.entrySet()
+				.stream()
+				.filter((entry) -> entry.getKey().isInstance(task))
+				.map((entry) -> entry.getValue().apply(task))
+				.findFirst()
+				.orElse(null);
 		}
 
 		private static TaskDescriptor describeTriggerTask(TriggerTask triggerTask) {
@@ -180,7 +185,8 @@ public class ScheduledTasksEndpoint {
 
 		protected IntervalTaskDescriptor(TaskType type, TriggerTask task, PeriodicTrigger trigger) {
 			super(type, task.getRunnable());
-			this.initialDelay = trigger.getInitialDelayDuration().toMillis();
+			Duration initialDelayDuration = trigger.getInitialDelayDuration();
+			this.initialDelay = (initialDelayDuration != null) ? initialDelayDuration.toMillis() : 0;
 			this.interval = trigger.getPeriodDuration().toMillis();
 		}
 
@@ -276,13 +282,7 @@ public class ScheduledTasksEndpoint {
 		private final String target;
 
 		private RunnableDescriptor(Runnable runnable) {
-			if (runnable instanceof ScheduledMethodRunnable scheduledMethodRunnable) {
-				Method method = scheduledMethodRunnable.getMethod();
-				this.target = method.getDeclaringClass().getName() + "." + method.getName();
-			}
-			else {
-				this.target = runnable.getClass().getName();
-			}
+			this.target = runnable.toString();
 		}
 
 		public String getTarget() {

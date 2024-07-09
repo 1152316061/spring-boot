@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ import ch.qos.logback.core.joran.spi.RuleStore;
 import ch.qos.logback.core.joran.util.PropertySetter;
 import ch.qos.logback.core.joran.util.beans.BeanDescription;
 import ch.qos.logback.core.model.ComponentModel;
+import ch.qos.logback.core.model.IncludeModel;
 import ch.qos.logback.core.model.Model;
 import ch.qos.logback.core.model.ModelUtil;
 import ch.qos.logback.core.model.processor.DefaultProcessor;
@@ -76,10 +77,16 @@ import org.springframework.util.function.SingletonSupplier;
  */
 class SpringBootJoranConfigurator extends JoranConfigurator {
 
-	private LoggingInitializationContext initializationContext;
+	private final LoggingInitializationContext initializationContext;
 
 	SpringBootJoranConfigurator(LoggingInitializationContext initializationContext) {
 		this.initializationContext = initializationContext;
+	}
+
+	@Override
+	protected void sanityCheck(Model topModel) {
+		super.sanityCheck(topModel);
+		performCheck(new SpringProfileIfNestedWithinSecondPhaseElementSanityChecker(), topModel);
 	}
 
 	@Override
@@ -99,6 +106,16 @@ class SpringBootJoranConfigurator extends JoranConfigurator {
 		ruleStore.addRule(new ElementSelector("configuration/springProperty"), SpringPropertyAction::new);
 		ruleStore.addRule(new ElementSelector("*/springProfile"), SpringProfileAction::new);
 		ruleStore.addTransparentPathPart("springProfile");
+	}
+
+	@Override
+	public void buildModelInterpretationContext() {
+		super.buildModelInterpretationContext();
+		this.modelInterpretationContext.setConfiguratorSupplier(() -> {
+			SpringBootJoranConfigurator configurator = new SpringBootJoranConfigurator(this.initializationContext);
+			configurator.setContext(this.context);
+			return configurator;
+		});
 	}
 
 	boolean configureUsingAotGeneratedArtifacts() {
@@ -171,9 +188,10 @@ class SpringBootJoranConfigurator extends JoranConfigurator {
 			generationContext.getRuntimeHints().resources().registerPattern(MODEL_RESOURCE_LOCATION);
 			SerializationHints serializationHints = generationContext.getRuntimeHints().serialization();
 			serializationTypes(this.model).forEach(serializationHints::registerType);
-			reflectionTypes(this.model).forEach((type) -> generationContext.getRuntimeHints().reflection().registerType(
-					TypeReference.of(type), MemberCategory.INTROSPECT_PUBLIC_METHODS,
-					MemberCategory.INVOKE_PUBLIC_METHODS, MemberCategory.INVOKE_PUBLIC_CONSTRUCTORS));
+			reflectionTypes(this.model).forEach((type) -> generationContext.getRuntimeHints()
+				.reflection()
+				.registerType(TypeReference.of(type), MemberCategory.INTROSPECT_PUBLIC_METHODS,
+						MemberCategory.INVOKE_PUBLIC_METHODS, MemberCategory.INVOKE_PUBLIC_CONSTRUCTORS));
 		}
 
 		@SuppressWarnings("unchecked")
@@ -229,7 +247,7 @@ class SpringBootJoranConfigurator extends JoranConfigurator {
 			String tag = model.getTag();
 			if (tag != null) {
 				className = this.modelInterpretationContext.getDefaultNestedComponentRegistry()
-						.findDefaultComponentTypeByTag(tag);
+					.findDefaultComponentTypeByTag(tag);
 				if (className != null) {
 					return loadImportType(className);
 				}
@@ -262,7 +280,8 @@ class SpringBootJoranConfigurator extends JoranConfigurator {
 
 		private Class<?> loadComponentType(String componentType) {
 			try {
-				return ClassUtils.forName(componentType, getClass().getClassLoader());
+				return ClassUtils.forName(this.modelInterpretationContext.subst(componentType),
+						getClass().getClassLoader());
 			}
 			catch (Throwable ex) {
 				throw new RuntimeException("Failed to load component type '" + componentType + "'", ex);
@@ -280,7 +299,7 @@ class SpringBootJoranConfigurator extends JoranConfigurator {
 
 		private void processComponent(Class<?> componentType, Set<String> reflectionTypes) {
 			BeanDescription beanDescription = this.modelInterpretationContext.getBeanDescriptionCache()
-					.getBeanDescription(componentType);
+				.getBeanDescription(componentType);
 			reflectionTypes.addAll(parameterTypesNames(beanDescription.getPropertyNameToAdder().values()));
 			reflectionTypes.addAll(parameterTypesNames(beanDescription.getPropertyNameToSetter().values()));
 			reflectionTypes.add(componentType.getCanonicalName());
@@ -288,11 +307,14 @@ class SpringBootJoranConfigurator extends JoranConfigurator {
 
 		private Collection<String> parameterTypesNames(Collection<Method> methods) {
 			return methods.stream()
-					.filter((method) -> !method.getDeclaringClass().equals(ContextAware.class)
-							&& !method.getDeclaringClass().equals(ContextAwareBase.class))
-					.map(Method::getParameterTypes).flatMap(Stream::of)
-					.filter((type) -> !type.isPrimitive() && !type.equals(String.class))
-					.map((type) -> type.isArray() ? type.getComponentType() : type).map(Class::getName).toList();
+				.filter((method) -> !method.getDeclaringClass().equals(ContextAware.class)
+						&& !method.getDeclaringClass().equals(ContextAwareBase.class))
+				.map(Method::getParameterTypes)
+				.flatMap(Stream::of)
+				.filter((type) -> !type.isPrimitive() && !type.equals(String.class))
+				.map((type) -> type.isArray() ? type.getComponentType() : type)
+				.map(Class::getName)
+				.toList();
 		}
 
 	}
@@ -301,16 +323,26 @@ class SpringBootJoranConfigurator extends JoranConfigurator {
 
 		private Model read() {
 			try (InputStream modelInput = getClass().getClassLoader()
-					.getResourceAsStream(ModelWriter.MODEL_RESOURCE_LOCATION)) {
+				.getResourceAsStream(ModelWriter.MODEL_RESOURCE_LOCATION)) {
 				try (ObjectInputStream input = new ObjectInputStream(modelInput)) {
 					Model model = (Model) input.readObject();
 					ModelUtil.resetForReuse(model);
+					markIncludesAsHandled(model);
 					return model;
 				}
 			}
 			catch (Exception ex) {
 				throw new RuntimeException("Failed to load model from '" + ModelWriter.MODEL_RESOURCE_LOCATION + "'",
 						ex);
+			}
+		}
+
+		private void markIncludesAsHandled(Model model) {
+			if (model instanceof IncludeModel) {
+				model.markAsHandled();
+			}
+			for (Model submodel : model.getSubModels()) {
+				markIncludesAsHandled(submodel);
 			}
 		}
 
@@ -347,7 +379,7 @@ class SpringBootJoranConfigurator extends JoranConfigurator {
 		@SuppressWarnings("unchecked")
 		private Map<String, String> getRegistryMap() {
 			Map<String, String> patternRuleRegistry = (Map<String, String>) this.context
-					.getObject(CoreConstants.PATTERN_RULE_REGISTRY);
+				.getObject(CoreConstants.PATTERN_RULE_REGISTRY);
 			if (patternRuleRegistry == null) {
 				patternRuleRegistry = new HashMap<>();
 				this.context.putObject(CoreConstants.PATTERN_RULE_REGISTRY, patternRuleRegistry);
@@ -360,8 +392,9 @@ class SpringBootJoranConfigurator extends JoranConfigurator {
 			generationContext.getGeneratedFiles().addResourceFile(RESOURCE_LOCATION, () -> asInputStream(registryMap));
 			generationContext.getRuntimeHints().resources().registerPattern(RESOURCE_LOCATION);
 			for (String ruleClassName : registryMap.values()) {
-				generationContext.getRuntimeHints().reflection().registerType(TypeReference.of(ruleClassName),
-						MemberCategory.INVOKE_PUBLIC_CONSTRUCTORS);
+				generationContext.getRuntimeHints()
+					.reflection()
+					.registerType(TypeReference.of(ruleClassName), MemberCategory.INVOKE_PUBLIC_CONSTRUCTORS);
 			}
 		}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,6 +82,7 @@ public class WebMvcEndpointManagementContextConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
+	@SuppressWarnings("removal")
 	public WebMvcEndpointHandlerMapping webEndpointServletHandlerMapping(WebEndpointsSupplier webEndpointsSupplier,
 			ServletEndpointsSupplier servletEndpointsSupplier, ControllerEndpointsSupplier controllerEndpointsSupplier,
 			EndpointMediaTypes endpointMediaTypes, CorsEndpointProperties corsProperties,
@@ -113,7 +114,10 @@ public class WebMvcEndpointManagementContextConfiguration {
 			WebEndpointsSupplier webEndpointsSupplier, HealthEndpointGroups groups) {
 		Collection<ExposableWebEndpoint> webEndpoints = webEndpointsSupplier.getEndpoints();
 		ExposableWebEndpoint health = webEndpoints.stream()
-				.filter((endpoint) -> endpoint.getEndpointId().equals(HealthEndpoint.ID)).findFirst().get();
+			.filter((endpoint) -> endpoint.getEndpointId().equals(HealthEndpoint.ID))
+			.findFirst()
+			.orElseThrow(
+					() -> new IllegalStateException("No endpoint with id '%s' found".formatted(HealthEndpoint.ID)));
 		return new AdditionalHealthEndpointPathsWebMvcHandlerMapping(health,
 				groups.getAllWithAdditionalPath(WebServerNamespace.MANAGEMENT));
 	}
@@ -144,7 +148,7 @@ public class WebMvcEndpointManagementContextConfiguration {
 	static class EndpointObjectMapperWebMvcConfigurer implements WebMvcConfigurer {
 
 		private static final List<MediaType> MEDIA_TYPES = Collections
-				.unmodifiableList(Arrays.asList(MediaType.APPLICATION_JSON, new MediaType("application", "*+json")));
+			.unmodifiableList(Arrays.asList(MediaType.APPLICATION_JSON, new MediaType("application", "*+json")));
 
 		private final EndpointObjectMapper endpointObjectMapper;
 
@@ -155,8 +159,8 @@ public class WebMvcEndpointManagementContextConfiguration {
 		@Override
 		public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
 			for (HttpMessageConverter<?> converter : converters) {
-				if (converter instanceof MappingJackson2HttpMessageConverter) {
-					configure((MappingJackson2HttpMessageConverter) converter);
+				if (converter instanceof MappingJackson2HttpMessageConverter mappingJackson2HttpMessageConverter) {
+					configure(mappingJackson2HttpMessageConverter);
 				}
 			}
 		}

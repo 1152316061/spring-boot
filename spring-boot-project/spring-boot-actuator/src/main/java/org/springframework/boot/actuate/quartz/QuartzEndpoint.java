@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ import org.quartz.Trigger;
 import org.quartz.Trigger.TriggerState;
 import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
+import org.quartz.utils.Key;
 
 import org.springframework.boot.actuate.endpoint.OperationResponseBody;
 import org.springframework.boot.actuate.endpoint.SanitizableData;
@@ -66,8 +67,8 @@ import org.springframework.util.Assert;
 public class QuartzEndpoint {
 
 	private static final Comparator<Trigger> TRIGGER_COMPARATOR = Comparator
-			.comparing(Trigger::getNextFireTime, Comparator.nullsLast(Comparator.naturalOrder()))
-			.thenComparing(Comparator.comparingInt(Trigger::getPriority).reversed());
+		.comparing(Trigger::getNextFireTime, Comparator.nullsLast(Comparator.naturalOrder()))
+		.thenComparing(Comparator.comparingInt(Trigger::getPriority).reversed());
 
 	private final Scheduler scheduler;
 
@@ -98,8 +99,10 @@ public class QuartzEndpoint {
 	public QuartzGroupsDescriptor quartzJobGroups() throws SchedulerException {
 		Map<String, Object> result = new LinkedHashMap<>();
 		for (String groupName : this.scheduler.getJobGroupNames()) {
-			List<String> jobs = this.scheduler.getJobKeys(GroupMatcher.jobGroupEquals(groupName)).stream()
-					.map((key) -> key.getName()).toList();
+			List<String> jobs = this.scheduler.getJobKeys(GroupMatcher.jobGroupEquals(groupName))
+				.stream()
+				.map(Key::getName)
+				.toList();
 			result.put(groupName, Collections.singletonMap("jobs", jobs));
 		}
 		return new QuartzGroupsDescriptor(result);
@@ -116,8 +119,11 @@ public class QuartzEndpoint {
 		for (String groupName : this.scheduler.getTriggerGroupNames()) {
 			Map<String, Object> groupDetails = new LinkedHashMap<>();
 			groupDetails.put("paused", pausedTriggerGroups.contains(groupName));
-			groupDetails.put("triggers", this.scheduler.getTriggerKeys(GroupMatcher.triggerGroupEquals(groupName))
-					.stream().map((key) -> key.getName()).toList());
+			groupDetails.put("triggers",
+					this.scheduler.getTriggerKeys(GroupMatcher.triggerGroupEquals(groupName))
+						.stream()
+						.map(Key::getName)
+						.toList());
 			result.put(groupName, groupDetails);
 		}
 		return new QuartzGroupsDescriptor(result);
@@ -570,9 +576,12 @@ public class QuartzEndpoint {
 		private final TriggerType type;
 
 		private static TriggerDescriptor of(Trigger trigger) {
-			return DESCRIBERS.entrySet().stream().filter((entry) -> entry.getKey().isInstance(trigger))
-					.map((entry) -> entry.getValue().apply(trigger)).findFirst()
-					.orElse(new CustomTriggerDescriptor(trigger));
+			return DESCRIBERS.entrySet()
+				.stream()
+				.filter((entry) -> entry.getKey().isInstance(trigger))
+				.map((entry) -> entry.getValue().apply(trigger))
+				.findFirst()
+				.orElse(new CustomTriggerDescriptor(trigger));
 		}
 
 		protected TriggerDescriptor(Trigger trigger, TriggerType type) {
@@ -721,7 +730,7 @@ public class QuartzEndpoint {
 		protected void appendSummary(Map<String, Object> content) {
 			content.put("interval",
 					getIntervalDuration(this.trigger.getRepeatInterval(), this.trigger.getRepeatIntervalUnit())
-							.toMillis());
+						.toMillis());
 			putIfNoNull(content, "daysOfWeek", this.trigger.getDaysOfWeek());
 			putIfNoNull(content, "startTimeOfDay", getLocalTime(this.trigger.getStartTimeOfDay()));
 			putIfNoNull(content, "endTimeOfDay", getLocalTime(this.trigger.getEndTimeOfDay()));
@@ -752,7 +761,7 @@ public class QuartzEndpoint {
 		protected void appendSummary(Map<String, Object> content) {
 			content.put("interval",
 					getIntervalDuration(this.trigger.getRepeatInterval(), this.trigger.getRepeatIntervalUnit())
-							.toMillis());
+						.toMillis());
 			putIfNoNull(content, "timeZone", this.trigger.getTimeZone());
 		}
 
