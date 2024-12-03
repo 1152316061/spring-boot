@@ -1,7 +1,7 @@
 plugins {
+	id "dev.adamko.dokkatoo-html"
 	id "java-library"
 	id "org.jetbrains.kotlin.jvm"
-	id "org.springframework.boot.conventions"
 	id "org.springframework.boot.deployed"
 	id "org.springframework.boot.optional-dependencies"
 }
@@ -55,6 +55,7 @@ dependencies {
 	testImplementation("org.spockframework:spock-core")
 	testImplementation("org.springframework:spring-webmvc")
 	testImplementation("org.springframework:spring-core-test")
+	testImplementation("org.springframework:spring-test")
 	testImplementation("org.testng:testng")
 
 	testRuntimeOnly("org.junit.vintage:junit-vintage-engine")

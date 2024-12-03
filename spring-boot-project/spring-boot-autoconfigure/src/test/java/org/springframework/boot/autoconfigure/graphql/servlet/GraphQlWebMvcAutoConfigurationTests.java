@@ -41,6 +41,7 @@ import org.springframework.graphql.execution.RuntimeWiringConfigurer;
 import org.springframework.graphql.server.WebGraphQlHandler;
 import org.springframework.graphql.server.WebGraphQlInterceptor;
 import org.springframework.graphql.server.webmvc.GraphQlHttpHandler;
+import org.springframework.graphql.server.webmvc.GraphQlSseHandler;
 import org.springframework.graphql.server.webmvc.GraphQlWebSocketHandler;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -79,6 +80,15 @@ class GraphQlWebMvcAutoConfigurationTests {
 	}
 
 	@Test
+	void shouldConfigureSseTimeout() {
+		this.contextRunner.withPropertyValues("spring.graphql.sse.timeout=10s").run((context) -> {
+			assertThat(context).hasSingleBean(GraphQlSseHandler.class);
+			GraphQlSseHandler handler = context.getBean(GraphQlSseHandler.class);
+			assertThat(handler).hasFieldOrPropertyWithValue("timeout", Duration.ofSeconds(10));
+		});
+	}
+
+	@Test
 	void simpleQueryShouldWork() {
 		withMockMvc((mvc) -> {
 			String query = "{ bookById(id: \\\"book-1\\\"){ id name pageCount author } }";
@@ -111,7 +121,20 @@ class GraphQlWebMvcAutoConfigurationTests {
 	}
 
 	@Test
-	void httpGetQueryShouldBeSupported() {
+	void unsupportedContentTypeShouldBeRejected() {
+		withMockMvc((mvc) -> {
+			String query = "{ bookById(id: \\\"book-1\\\"){ id name pageCount author } }";
+			assertThat(mvc.post()
+				.uri("/graphql")
+				.content("{\"query\": \"" + query + "\"}")
+				.contentType(MediaType.TEXT_PLAIN)).hasStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+				.headers()
+				.hasValue("Accept", "application/json");
+		});
+	}
+
+	@Test
+	void httpGetQueryShouldBeRejected() {
 		withMockMvc((mvc) -> {
 			String query = "{ bookById(id: \\\"book-1\\\"){ id name pageCount author } }";
 			assertThat(mvc.get().uri("/graphql?query={query}", "{\"query\": \"" + query + "\"}"))

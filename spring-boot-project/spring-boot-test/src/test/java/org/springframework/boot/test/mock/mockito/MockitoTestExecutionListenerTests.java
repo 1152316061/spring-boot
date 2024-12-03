@@ -41,7 +41,10 @@ import static org.mockito.Mockito.mock;
  * Tests for {@link MockitoTestExecutionListener}.
  *
  * @author Phillip Webb
+ * @deprecated since 3.4.0 for removal in 3.6.0
  */
+@SuppressWarnings("removal")
+@Deprecated(since = "3.4.0", forRemoval = true)
 @ExtendWith(MockitoExtension.class)
 class MockitoTestExecutionListenerTests {
 
@@ -52,6 +55,14 @@ class MockitoTestExecutionListenerTests {
 
 	@Mock
 	private MockitoPostProcessor postProcessor;
+
+	@Test
+	void prepareTestInstanceShouldInitMockitoAnnotations() throws Exception {
+		WithMockitoAnnotations instance = new WithMockitoAnnotations();
+		this.listener.prepareTestInstance(mockTestContext(instance));
+		assertThat(instance.mock).isNotNull();
+		assertThat(instance.captor).isNotNull();
+	}
 
 	@Test
 	void prepareTestInstanceShouldInjectMockBean() throws Exception {

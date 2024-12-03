@@ -37,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
  *
  * @author Andy Wilkinson
  * @author Scott Frederick
+ * @author Ivan Malutin
  */
 class ArchitectureCheckTests {
 
@@ -60,7 +61,12 @@ class ArchitectureCheckTests {
 	}
 
 	File failureReport(ArchitectureCheck architectureCheck) {
-		return new File(architectureCheck.getProject().getBuildDir(), "checkArchitecture/failure-report.txt");
+		return architectureCheck.getProject()
+			.getLayout()
+			.getBuildDirectory()
+			.file("checkArchitecture/failure-report.txt")
+			.get()
+			.getAsFile();
 	}
 
 	@Test
@@ -133,6 +139,66 @@ class ArchitectureCheckTests {
 	@Test
 	void whenClassUsesResourceUtilsWithoutLoadingResourcesTaskSucceedsAndWritesAnEmptyReport() throws Exception {
 		prepareTask("resources/noloads", (architectureCheck) -> {
+			architectureCheck.checkArchitecture();
+			assertThat(failureReport(architectureCheck)).isEmpty();
+		});
+	}
+
+	@Test
+	void whenClassDoesNotCallObjectsRequireNonNullTaskSucceedsAndWritesAnEmptyReport() throws Exception {
+		prepareTask("objects/noRequireNonNull", (architectureCheck) -> {
+			architectureCheck.checkArchitecture();
+			assertThat(failureReport(architectureCheck)).isEmpty();
+		});
+	}
+
+	@Test
+	void whenClassCallsObjectsRequireNonNullWithMessageTaskFailsAndWritesReport() throws Exception {
+		prepareTask("objects/requireNonNullWithString", (architectureCheck) -> {
+			assertThatExceptionOfType(GradleException.class).isThrownBy(architectureCheck::checkArchitecture);
+			assertThat(failureReport(architectureCheck)).isNotEmpty();
+		});
+	}
+
+	@Test
+	void whenClassCallsObjectsRequireNonNullWithSupplierTaskFailsAndWritesReport() throws Exception {
+		prepareTask("objects/requireNonNullWithSupplier", (architectureCheck) -> {
+			assertThatExceptionOfType(GradleException.class).isThrownBy(architectureCheck::checkArchitecture);
+			assertThat(failureReport(architectureCheck)).isNotEmpty();
+		});
+	}
+
+	@Test
+	void whenClassCallsStringToUpperCaseWithoutLocaleFailsAndWritesReport() throws Exception {
+		prepareTask("string/toUpperCase", (architectureCheck) -> {
+			assertThatExceptionOfType(GradleException.class).isThrownBy(architectureCheck::checkArchitecture);
+			assertThat(failureReport(architectureCheck)).isNotEmpty()
+				.content()
+				.contains("because String.toUpperCase(Locale.ROOT) should be used instead");
+		});
+	}
+
+	@Test
+	void whenClassCallsStringToLowerCaseWithoutLocaleFailsAndWritesReport() throws Exception {
+		prepareTask("string/toLowerCase", (architectureCheck) -> {
+			assertThatExceptionOfType(GradleException.class).isThrownBy(architectureCheck::checkArchitecture);
+			assertThat(failureReport(architectureCheck)).isNotEmpty()
+				.content()
+				.contains("because String.toLowerCase(Locale.ROOT) should be used instead");
+		});
+	}
+
+	@Test
+	void whenClassCallsStringToLowerCaseWithLocaleShouldNotFail() throws Exception {
+		prepareTask("string/toLowerCaseWithLocale", (architectureCheck) -> {
+			architectureCheck.checkArchitecture();
+			assertThat(failureReport(architectureCheck)).isEmpty();
+		});
+	}
+
+	@Test
+	void whenClassCallsStringToUpperCaseWithLocaleShouldNotFail() throws Exception {
+		prepareTask("string/toUpperCaseWithLocale", (architectureCheck) -> {
 			architectureCheck.checkArchitecture();
 			assertThat(failureReport(architectureCheck)).isEmpty();
 		});

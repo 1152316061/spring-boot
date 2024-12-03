@@ -16,7 +16,7 @@
 
 package org.springframework.boot.build.antora;
 
-import java.nio.file.Path;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -52,6 +52,7 @@ public final class Extensions {
 		List<Extension> extensions = new ArrayList<>();
 		extensions.add(new Extension("@asciidoctor/tabs"));
 		extensions.add(new Extension("@springio/asciidoctor-extensions", "@springio/asciidoctor-extensions",
+				"@springio/asciidoctor-extensions/javadoc-extension",
 				"@springio/asciidoctor-extensions/configuration-properties-extension",
 				"@springio/asciidoctor-extensions/section-ids-extension"));
 		asciidoc = List.copyOf(extensions);
@@ -157,18 +158,22 @@ public final class Extensions {
 				customize("version_file", versionFile);
 			}
 
-			void locations(Path... locations) {
-				locations(Arrays.stream(locations).map(Path::toString).toList());
-			}
-
-			private void locations(List<String> locations) {
+			void locations(List<String> locations) {
 				customize("locations", locations);
 			}
 
-			void alwaysInclude(Map<String, String> alwaysInclude) {
+			void alwaysInclude(List<AlwaysInclude> alwaysInclude) {
 				if (alwaysInclude != null && !alwaysInclude.isEmpty()) {
-					customize("always_include", List.of(new TreeMap<>(alwaysInclude)));
+					customize("always_include", alwaysInclude.stream().map(AlwaysInclude::asMap).toList());
 				}
+			}
+
+			record AlwaysInclude(String name, String classifier) implements Serializable {
+
+				private Map<String, String> asMap() {
+					return new TreeMap<>(Map.of("name", name(), "classifier", classifier()));
+				}
+
 			}
 
 		}

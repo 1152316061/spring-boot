@@ -50,7 +50,7 @@ import static org.mockito.Mockito.mock;
  *
  * @author Moritz Halbritter
  */
-@SuppressWarnings("removal")
+@SuppressWarnings({ "deprecation", "removal" })
 class ZipkinConfigurationsSenderConfigurationTests {
 
 	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
@@ -198,6 +198,7 @@ class ZipkinConfigurationsSenderConfigurationTests {
 	}
 
 	@Test
+	@SuppressWarnings("resource")
 	void shouldUseCustomHttpEndpointSupplierFactoryWhenReactive() {
 		this.reactiveContextRunner.withUserConfiguration(WebClientConfiguration.class)
 			.withClassLoader(new FilteredClassLoader(URLConnectionSender.class))
@@ -207,6 +208,7 @@ class ZipkinConfigurationsSenderConfigurationTests {
 	}
 
 	@Test
+	@SuppressWarnings("resource")
 	void shouldUseCustomHttpEndpointSupplierFactoryWhenRestTemplate() {
 		this.contextRunner.withUserConfiguration(RestTemplateConfiguration.class)
 			.withClassLoader(new FilteredClassLoader(URLConnectionSender.class, WebClient.class))

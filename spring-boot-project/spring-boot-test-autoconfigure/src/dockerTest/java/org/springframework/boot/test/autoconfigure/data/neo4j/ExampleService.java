@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2020 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,8 +34,8 @@ public class ExampleService {
 		this.neo4jTemplate = neo4jTemplate;
 	}
 
-	public boolean hasNode(Class<?> clazz) {
-		return this.neo4jTemplate.count(clazz) == 1;
+	public boolean hasNode(Class<?> type) {
+		return this.neo4jTemplate.count(type) == 1;
 	}
 
 }

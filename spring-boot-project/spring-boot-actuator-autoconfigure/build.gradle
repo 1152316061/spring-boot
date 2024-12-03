@@ -1,18 +1,13 @@
 plugins {
 	id "java-library"
-	id "org.antora"
+	id "org.springframework.boot.antora-contributor"
 	id "org.springframework.boot.auto-configuration"
 	id "org.springframework.boot.configuration-properties"
-	id "org.springframework.boot.conventions"
 	id "org.springframework.boot.deployed"
 	id "org.springframework.boot.optional-dependencies"
 }
 
 description = "Spring Boot Actuator AutoConfigure"
-
-configurations {
-	antoraContent
-}
 
 dependencies {
 	api(project(":spring-boot-project:spring-boot-actuator"))
@@ -77,6 +72,7 @@ dependencies {
 	optional("jakarta.persistence:jakarta.persistence-api")
 	optional("jakarta.servlet:jakarta.servlet-api")
 	optional("javax.cache:cache-api")
+	optional("org.apache.activemq:activemq-broker")
 	optional("org.apache.activemq:activemq-client")
 	optional("org.apache.commons:commons-dbcp2") {
 		exclude group: "commons-logging", module: "commons-logging"
@@ -105,6 +101,7 @@ dependencies {
 	optional("org.hibernate.orm:hibernate-micrometer")
 	optional("org.hibernate.validator:hibernate-validator")
 	optional("org.influxdb:influxdb-java")
+	optional("org.junit.platform:junit-platform-launcher")
 	optional("org.liquibase:liquibase-core") {
 		exclude group: "javax.xml.bind", module: "jaxb-api"
 	}
@@ -172,6 +169,7 @@ dependencies {
 	testImplementation("org.skyscreamer:jsonassert")
 	testImplementation("org.springframework:spring-core-test")
 	testImplementation("org.springframework:spring-orm")
+	testImplementation("org.springframework:spring-test")
 	testImplementation("org.springframework.data:spring-data-rest-webmvc")
 	testImplementation("org.springframework.integration:spring-integration-jmx")
 	testImplementation("org.springframework.restdocs:spring-restdocs-mockmvc")
@@ -203,11 +201,13 @@ tasks.named("test") {
 }
 
 def documentationTest = tasks.register("documentationTest", Test) {
+	testClassesDirs = testing.suites.test.sources.output.classesDirs
+	classpath = testing.suites.test.sources.runtimeClasspath
 	jvmArgs += "--add-opens=java.base/java.net=ALL-UNNAMED"
 	filter {
 		includeTestsMatching("org.springframework.boot.actuate.autoconfigure.endpoint.web.documentation.*")
 	}
-	outputs.dir("${buildDir}/generated-snippets")
+	outputs.dir(layout.buildDirectory.dir("generated-snippets"))
 	develocity {
 		predictiveTestSelection {
 			enabled = false
@@ -215,36 +215,18 @@ def documentationTest = tasks.register("documentationTest", Test) {
 	}
 }
 
-def antoraActuatorRestApiLocalAggregateContent  = tasks.register("antoraActuatorRestApiLocalAggregateContent", Zip) {
-	destinationDirectory = layout.buildDirectory.dir('generated/docs/antora-content')
-	archiveClassifier = "actuator-rest-api-local-aggregate-content"
-	from(tasks.getByName("generateAntoraYml")) {
-		into "modules"
+antoraContributions {
+	'actuator-rest-api' {
+		aggregateContent {
+			from(documentationTest.map { layout.buildDirectory.dir("generated-snippets") }) {
+				into "modules/api/partials/rest/actuator"
+			}
+		}
+		localAggregateContent {
+			from(tasks.named("generateAntoraYml")) {
+				into "modules"
+			}
+		}
+		source()
 	}
 }
-
-def antoraActuatorRestApiAggregateContent = tasks.register("antoraActuatorRestApiAggregateContent", Zip) {
-	dependsOn documentationTest
-	inputs.dir("${buildDir}/generated-snippets")
-		.withPathSensitivity(PathSensitivity.RELATIVE)
-		.withPropertyName("generatedSnippets")
-	destinationDirectory = layout.buildDirectory.dir('generated/docs/antora-content')
-	archiveClassifier = "actuator-rest-api-aggregate-content"
-	from("${buildDir}/generated-snippets") {
-		into "modules/api/partials/rest/actuator"
-	}
-}
-
-tasks.named("generateAntoraPlaybook") {
-	alwaysInclude = [name: "actuator-rest-api", classifier: "local-aggregate-content"]
-	dependsOn antoraActuatorRestApiLocalAggregateContent
-}
-
-tasks.named("antora") {
-	inputs.files(antoraActuatorRestApiAggregateContent)
-}
-
-artifacts {
-	antoraContent antoraActuatorRestApiAggregateContent
-}
-

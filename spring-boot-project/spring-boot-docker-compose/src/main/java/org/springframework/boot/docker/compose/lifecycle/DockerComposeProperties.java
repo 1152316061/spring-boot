@@ -42,14 +42,19 @@ public class DockerComposeProperties {
 	static final String NAME = "spring.docker.compose";
 
 	/**
-	 * Whether docker compose support is enabled.
+	 * Whether Docker Compose support is enabled.
 	 */
 	private boolean enabled = true;
 
 	/**
-	 * Path to a specific docker compose configuration file.
+	 * Arguments to pass to the Docker Compose command.
 	 */
-	private File file;
+	private final List<String> arguments = new ArrayList<>();
+
+	/**
+	 * Paths to the Docker Compose configuration files.
+	 */
+	private final List<File> file = new ArrayList<>();
 
 	/**
 	 * Docker compose lifecycle management.
@@ -88,12 +93,12 @@ public class DockerComposeProperties {
 		this.enabled = enabled;
 	}
 
-	public File getFile() {
-		return this.file;
+	public List<String> getArguments() {
+		return this.arguments;
 	}
 
-	public void setFile(File file) {
-		this.file = file;
+	public List<File> getFile() {
+		return this.file;
 	}
 
 	public LifecycleManagement getLifecycleManagement() {
@@ -142,7 +147,7 @@ public class DockerComposeProperties {
 	public static class Start {
 
 		/**
-		 * Command used to start docker compose.
+		 * Command used to start Docker Compose.
 		 */
 		private StartCommand command = StartCommand.UP;
 
@@ -234,7 +239,7 @@ public class DockerComposeProperties {
 	public static class Stop {
 
 		/**
-		 * Command used to stop docker compose.
+		 * Command used to stop Docker Compose.
 		 */
 		private StopCommand command = StopCommand.STOP;
 

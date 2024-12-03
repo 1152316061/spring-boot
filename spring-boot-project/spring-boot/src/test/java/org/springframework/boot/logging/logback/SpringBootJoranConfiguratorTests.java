@@ -32,6 +32,7 @@ import org.springframework.boot.context.properties.source.ConfigurationPropertyS
 import org.springframework.boot.logging.LoggingInitializationContext;
 import org.springframework.boot.testsupport.system.CapturedOutput;
 import org.springframework.boot.testsupport.system.OutputCaptureExtension;
+import org.springframework.context.aot.AbstractAotProcessor;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.context.support.TestPropertySourceUtils;
 
@@ -73,6 +74,7 @@ class SpringBootJoranConfiguratorTests {
 	void reset() {
 		this.context.stop();
 		new BasicConfigurator().configure((LoggerContext) LoggerFactory.getILoggerFactory());
+		this.context.start();
 	}
 
 	@Test
@@ -220,7 +222,7 @@ class SpringBootJoranConfiguratorTests {
 
 	@Test
 	void addsAotContributionToContextDuringAotProcessing() throws Exception {
-		withSystemProperty("spring.aot.processing", "true", () -> {
+		withSystemProperty(AbstractAotProcessor.AOT_PROCESSING, "true", () -> {
 			initialize("property.xml");
 			Object contribution = this.context.getObject(BeanFactoryInitializationAotContribution.class.getName());
 			assertThat(contribution).isNotNull();
